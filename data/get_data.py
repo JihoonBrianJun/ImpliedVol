@@ -35,55 +35,42 @@ def implied_volatility(S, K, T, r, C_market, initial_guess=0.2):
 
 
 def main(args):
-    if args.download_data:
-        interest_rates = yf.download(args.treasury_ticker, interval="1d", start=args.start, end=args.end)['Adj Close']
-        underlying_price_df = yf.download(args.underlying_ticker, interval="1d", start=args.start, end=args.end)['Adj Close']
-        dates = underlying_price_df.index
-        remain_dates = (pd.to_datetime('2024-06-21') - dates).days / 366
-        underlying_prices = underlying_price_df.to_numpy()
-        
-        all_implied_vol_list = []
-        for idx, date in tqdm(enumerate(dates)):
-            interest_rate = interest_rates.loc[date]
-            underlying_price = underlying_prices[idx]
-            remain_date = remain_dates[idx]
-            implied_vol_list = []
-            for ratio in (np.arange(args.bins) - 5):
-                strike = int(np.round((underlying_price * (1 + ratio / 100)) // 50) * 50)
-                try:
-                    option_price_df = yf.download(f"{args.base_ticker}0{strike}000", interval="1d", progress=False)['Adj Close']
-                    if date in option_price_df.index:
-                        try:
-                            implied_vol = implied_volatility(underlying_price, strike, remain_date, interest_rate / 100, option_price_df.loc[date])
-                        except:
-                            implied_vol = np.nan
-                    else:
+    interest_rates = yf.download(args.treasury_ticker, interval="1d", start=args.start, end=args.end)['Adj Close']
+    underlying_price_df = yf.download(args.underlying_ticker, interval="1d", start=args.start, end=args.end)['Adj Close']
+    dates = underlying_price_df.index
+    remain_dates = (pd.to_datetime('2024-06-21') - dates).days / 366
+    underlying_prices = underlying_price_df.to_numpy()
+    
+    all_implied_vol_list = []
+    for idx, date in tqdm(enumerate(dates)):
+        interest_rate = interest_rates.loc[date]
+        underlying_price = underlying_prices[idx]
+        remain_date = remain_dates[idx]
+        implied_vol_list = []
+        for ratio in (np.arange(args.bins) - 5):
+            strike = int(np.round((underlying_price * (1 + ratio / 100)) // 50) * 50)
+            try:
+                option_price_df = yf.download(f"{args.base_ticker}0{strike}000", interval="1d", progress=False)['Adj Close']
+                if date in option_price_df.index:
+                    try:
+                        implied_vol = implied_volatility(underlying_price, strike, remain_date, interest_rate / 100, option_price_df.loc[date])
+                    except:
                         implied_vol = np.nan
-                except:
+                else:
                     implied_vol = np.nan
-                implied_vol_list.append(implied_vol)
-            all_implied_vol_list.append(implied_vol_list)
+            except:
+                implied_vol = np.nan
+            implied_vol_list.append(implied_vol)
+        all_implied_vol_list.append(implied_vol_list)
 
-        with open(args.save_dir, 'w') as f:
-            json.dump(all_implied_vol_list, f)
-    
-    with open(args.save_dir, 'r') as f:
-        all_implied_vol_list = json.load(f)
-        
-    for idx in range(len(all_implied_vol_list)):
-        mean_vol = np.nanmean(all_implied_vol_list[idx])
-        for sub_idx in range(args.bins):
-            if np.isnan(all_implied_vol_list[idx][sub_idx]):
-                all_implied_vol_list[idx][sub_idx] = mean_vol
-    
-    print(np.mean(all_implied_vol_list[-1]))
+    with open(args.save_dir, 'w') as f:
+        json.dump(all_implied_vol_list, f)
         
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--save_dir', type=str, default='data/all.json')
     parser.add_argument('--bins', type=int, default=11)
-    parser.add_argument('--download_data', type=bool, default=False)
     parser.add_argument('--treasury_ticker', type=str, default='^IRX')
     parser.add_argument('--underlying_ticker', type=str, default='ESM24.CME')
     parser.add_argument('--base_ticker', type=str, default='SPX240621C')
