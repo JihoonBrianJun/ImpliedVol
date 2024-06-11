@@ -12,7 +12,7 @@ def test_predictor(model, loss_function, dataloader, bins,
                    device, save_dir, train_config, best_test_loss=None,
                    save_ckpt=True, load_ckpt=False):
     if load_ckpt:
-        model.load_state_dict(torch.load(f'{save_dir}.pt'))
+        model.load_state_dict(torch.load(f'{save_dir}.pt', map_location=device))
 
     model.eval()
     test_loss = 0    
